@@ -19,8 +19,25 @@ export interface OpenAIAdapterConfig extends AIAdapterConfig {
   baseURL?: string;
 }
 
-export class OpenAIAdapter extends BaseAdapter {
+const OPENAI_MODELS = [
+  "gpt-4",
+  "gpt-4-turbo",
+  "gpt-4-turbo-preview",
+  "gpt-4o",
+  "gpt-4o-mini",
+  "gpt-3.5-turbo",
+  "gpt-3.5-turbo-16k",
+  "gpt-3.5-turbo-instruct",
+  "text-embedding-ada-002",
+  "text-embedding-3-small",
+  "text-embedding-3-large",
+] as const;
+
+export type OpenAIModel = (typeof OPENAI_MODELS)[number];
+
+export class OpenAIAdapter extends BaseAdapter<typeof OPENAI_MODELS> {
   name = "openai";
+  models = OPENAI_MODELS;
   private client: OpenAI;
 
   constructor(config: OpenAIAdapterConfig) {
@@ -301,10 +318,10 @@ export class OpenAIAdapter extends BaseAdapter {
             finishReason: choice.finish_reason as any,
             usage: chunk.usage
               ? {
-                  promptTokens: chunk.usage.prompt_tokens || 0,
-                  completionTokens: chunk.usage.completion_tokens || 0,
-                  totalTokens: chunk.usage.total_tokens || 0,
-                }
+                promptTokens: chunk.usage.prompt_tokens || 0,
+                completionTokens: chunk.usage.completion_tokens || 0,
+                totalTokens: chunk.usage.total_tokens || 0,
+              }
               : undefined,
           };
         }

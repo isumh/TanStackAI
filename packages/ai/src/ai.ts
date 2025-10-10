@@ -12,11 +12,47 @@ import type {
   EmbeddingResult,
 } from "./types";
 
-type AdapterMap = Record<string, AIAdapter>;
+type AdapterMap = Record<string, AIAdapter<readonly string[]>>;
 
 interface AIConfig<T extends AdapterMap> {
   adapters: T;
 }
+
+// Extract model type from an adapter
+type ExtractModels<T> = T extends AIAdapter<infer M> ? M[number] : string;
+
+// Create options type with adapter-specific model constraint
+type ChatOptionsWithAdapter<
+  TAdapters extends AdapterMap,
+  K extends keyof TAdapters & string
+> = Omit<ChatCompletionOptions, "model"> & {
+  adapter: K;
+  model: ExtractModels<TAdapters[K]>;
+};
+
+type TextGenerationOptionsWithAdapter<
+  TAdapters extends AdapterMap,
+  K extends keyof TAdapters & string
+> = Omit<TextGenerationOptions, "model"> & {
+  adapter: K;
+  model: ExtractModels<TAdapters[K]>;
+};
+
+type SummarizationOptionsWithAdapter<
+  TAdapters extends AdapterMap,
+  K extends keyof TAdapters & string
+> = Omit<SummarizationOptions, "model"> & {
+  adapter: K;
+  model: ExtractModels<TAdapters[K]>;
+};
+
+type EmbeddingOptionsWithAdapter<
+  TAdapters extends AdapterMap,
+  K extends keyof TAdapters & string
+> = Omit<EmbeddingOptions, "model"> & {
+  adapter: K;
+  model: ExtractModels<TAdapters[K]>;
+};
 
 export class AI<T extends AdapterMap = AdapterMap> {
   private adapters: T;
@@ -49,10 +85,10 @@ export class AI<T extends AdapterMap = AdapterMap> {
    * Complete a chat conversation
    */
   async chat<K extends keyof T & string>(
-    options: ChatCompletionOptions & { adapter: K }
+    options: ChatOptionsWithAdapter<T, K>
   ): Promise<ChatCompletionResult> {
     const { adapter, ...restOptions } = options;
-    return this.getAdapter(adapter).chatCompletion(restOptions);
+    return this.getAdapter(adapter).chatCompletion(restOptions as ChatCompletionOptions);
   }
 
   /**
@@ -60,13 +96,13 @@ export class AI<T extends AdapterMap = AdapterMap> {
    * @deprecated Use streamChat() for structured streaming with JSON chunks
    */
   async *chatStream<K extends keyof T & string>(
-    options: ChatCompletionOptions & { adapter: K }
+    options: ChatOptionsWithAdapter<T, K>
   ): AsyncIterable<ChatCompletionChunk> {
     const { adapter, ...restOptions } = options;
     yield* this.getAdapter(adapter).chatCompletionStream({
       ...restOptions,
       stream: true,
-    });
+    } as ChatCompletionOptions);
   }
 
   /**
@@ -74,7 +110,7 @@ export class AI<T extends AdapterMap = AdapterMap> {
    * Automatically executes tools if they have execute functions
    */
   async *streamChat<K extends keyof T & string>(
-    options: ChatCompletionOptions & { adapter: K }
+    options: ChatOptionsWithAdapter<T, K>
   ): AsyncIterable<StreamChunk> {
     const { adapter, ...restOptions } = options;
     const hasToolExecutors = restOptions.tools?.some((t) => t.execute);
@@ -83,7 +119,7 @@ export class AI<T extends AdapterMap = AdapterMap> {
 
     // If no tool executors, just stream normally
     if (!hasToolExecutors) {
-      yield* adapterInstance.chatStream({ ...restOptions, stream: true });
+      yield* adapterInstance.chatStream({ ...restOptions, stream: true } as ChatCompletionOptions);
       return;
     }
 
@@ -107,7 +143,7 @@ export class AI<T extends AdapterMap = AdapterMap> {
         ...restOptions,
         messages,
         stream: true,
-      })) {
+      } as ChatCompletionOptions)) {
         yield chunk;
 
         // Accumulate tool calls
@@ -204,50 +240,54 @@ export class AI<T extends AdapterMap = AdapterMap> {
    * Generate text from a prompt
    */
   async generateText<K extends keyof T & string>(
-    options: TextGenerationOptions & { adapter: K }
+    options: TextGenerationOptionsWithAdapter<T, K>
   ): Promise<TextGenerationResult> {
     const { adapter, ...restOptions } = options;
-    return this.getAdapter(adapter).generateText(restOptions);
+    return this.getAdapter(adapter).generateText(restOptions as TextGenerationOptions);
   }
 
   /**
    * Generate text from a prompt with streaming
    */
   async *generateTextStream<K extends keyof T & string>(
-    options: TextGenerationOptions & { adapter: K }
+    options: TextGenerationOptionsWithAdapter<T, K>
   ): AsyncIterable<string> {
     const { adapter, ...restOptions } = options;
     yield* this.getAdapter(adapter).generateTextStream({
       ...restOptions,
       stream: true,
-    });
+    } as TextGenerationOptions);
   }
 
   /**
    * Summarize text
    */
   async summarize<K extends keyof T & string>(
-    options: SummarizationOptions & { adapter: K }
+    options: SummarizationOptionsWithAdapter<T, K>
   ): Promise<SummarizationResult> {
     const { adapter, ...restOptions } = options;
-    return this.getAdapter(adapter).summarize(restOptions);
+    return this.getAdapter(adapter).summarize(restOptions as SummarizationOptions);
   }
 
   /**
    * Create embeddings for text
    */
   async embed<K extends keyof T & string>(
-    options: EmbeddingOptions & { adapter: K }
+    options: EmbeddingOptionsWithAdapter<T, K>
   ): Promise<EmbeddingResult> {
     const { adapter, ...restOptions } = options;
-    return this.getAdapter(adapter).createEmbeddings(restOptions);
+    return this.getAdapter(adapter).createEmbeddings(restOptions as EmbeddingOptions);
   }
 
   /**
    * Add a new adapter
    */
-  addAdapter<K extends string>(name: K, adapter: AIAdapter): AI<T & Record<K, AIAdapter>> {
-    const newAdapters = { ...this.adapters, [name]: adapter } as T & Record<K, AIAdapter>;
+  addAdapter<K extends string>(
+    name: K,
+    adapter: AIAdapter<readonly string[]>
+  ): AI<T & Record<K, AIAdapter<readonly string[]>>> {
+    const newAdapters = { ...this.adapters, [name]: adapter } as T &
+      Record<K, AIAdapter<readonly string[]>>;
     return new AI({ adapters: newAdapters });
   }
 }

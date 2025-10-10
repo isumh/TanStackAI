@@ -20,8 +20,20 @@ export interface GeminiAdapterConfig extends AIAdapterConfig {
   apiKey: string;
 }
 
-export class GeminiAdapter extends BaseAdapter {
+const GEMINI_MODELS = [
+  "gemini-pro",
+  "gemini-pro-vision",
+  "gemini-ultra",
+  "gemini-1.5-pro",
+  "gemini-1.5-flash",
+  "embedding-001",
+] as const;
+
+export type GeminiModel = (typeof GEMINI_MODELS)[number];
+
+export class GeminiAdapter extends BaseAdapter<typeof GEMINI_MODELS> {
   name = "gemini";
+  models = GEMINI_MODELS;
   private client: GoogleGenerativeAI;
 
   constructor(config: GeminiAdapterConfig) {

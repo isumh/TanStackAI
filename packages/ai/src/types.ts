@@ -37,9 +37,9 @@ export interface ChatCompletionOptions {
   stream?: boolean;
   tools?: Tool[];
   toolChoice?:
-    | "auto"
-    | "none"
-    | { type: "function"; function: { name: string } };
+  | "auto"
+  | "none"
+  | { type: "function"; function: { name: string } };
   maxIterations?: number; // For automatic tool execution (default: 5)
   metadata?: Record<string, any>;
 }
@@ -184,8 +184,9 @@ export interface EmbeddingResult {
   };
 }
 
-export interface AIAdapter {
+export interface AIAdapter<TModels extends readonly string[] = readonly string[]> {
   name: string;
+  models: TModels;
 
   // Chat methods
   chatCompletion(options: ChatCompletionOptions): Promise<ChatCompletionResult>;

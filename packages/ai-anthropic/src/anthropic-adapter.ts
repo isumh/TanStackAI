@@ -19,8 +19,22 @@ export interface AnthropicAdapterConfig extends AIAdapterConfig {
   apiKey: string;
 }
 
-export class AnthropicAdapter extends BaseAdapter {
+const ANTHROPIC_MODELS = [
+  "claude-3-5-sonnet-20241022",
+  "claude-3-5-sonnet-20240620",
+  "claude-3-opus-20240229",
+  "claude-3-sonnet-20240229",
+  "claude-3-haiku-20240307",
+  "claude-2.1",
+  "claude-2.0",
+  "claude-instant-1.2",
+] as const;
+
+export type AnthropicModel = (typeof ANTHROPIC_MODELS)[number];
+
+export class AnthropicAdapter extends BaseAdapter<typeof ANTHROPIC_MODELS> {
   name = "anthropic";
+  models = ANTHROPIC_MODELS;
   private client: Anthropic;
 
   constructor(config: AnthropicAdapterConfig) {
@@ -253,12 +267,12 @@ export class AnthropicAdapter extends BaseAdapter {
                   : (event.delta.stop_reason as any),
               usage: event.usage
                 ? {
-                    promptTokens: event.usage.input_tokens || 0,
-                    completionTokens: event.usage.output_tokens || 0,
-                    totalTokens:
-                      (event.usage.input_tokens || 0) +
-                      (event.usage.output_tokens || 0),
-                  }
+                  promptTokens: event.usage.input_tokens || 0,
+                  completionTokens: event.usage.output_tokens || 0,
+                  totalTokens:
+                    (event.usage.input_tokens || 0) +
+                    (event.usage.output_tokens || 0),
+                }
                 : undefined,
             };
           }

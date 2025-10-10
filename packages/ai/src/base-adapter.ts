@@ -12,8 +12,9 @@ import type {
   EmbeddingResult,
 } from "./types";
 
-export abstract class BaseAdapter implements AIAdapter {
+export abstract class BaseAdapter<TModels extends readonly string[] = readonly string[]> implements AIAdapter {
   abstract name: string;
+  abstract models: TModels;
   protected config: AIAdapterConfig;
 
   constructor(config: AIAdapterConfig = {}) {
