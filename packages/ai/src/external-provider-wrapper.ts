@@ -204,7 +204,13 @@ class ExternalAdapterWrapper<
         return { role: 'system', content: msg.content };
       }
       if (msg.role === 'user') {
-        return { role: 'user', content: msg.content };
+        // Vercel AI SDK expects content as array of parts for user messages
+        return {
+          role: 'user',
+          content: typeof msg.content === 'string'
+            ? [{ type: 'text', text: msg.content }]
+            : msg.content
+        };
       }
       if (msg.role === 'assistant') {
         const result: any = { role: 'assistant' };

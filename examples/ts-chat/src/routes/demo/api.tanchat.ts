@@ -3,7 +3,6 @@ import { AI, tool } from "@tanstack/ai";
 import { OllamaAdapter } from "@tanstack/ai-ollama";
 import { OpenAIAdapter } from "@tanstack/ai-openai";
 import { wrapExternalProvider } from "@tanstack/ai";
-import type { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import guitars from "@/data/example-guitars";
 
 
@@ -60,27 +59,38 @@ const tools = {
   }),
 }
 
-import { openai } from "@ai-sdk/openai"
-const vercelOpenAiAdapter = wrapExternalProvider<OpenAIResponsesProviderOptions>()(openai);
+
+
+import { createOpenAI, OpenAIResponsesProviderOptions } from "@ai-sdk/openai"
+
+const openAi = createOpenAI({
+  apiKey: process.env.AI_KEY!,
+});
+
+const vercelOpenAiAdapter = wrapExternalProvider<OpenAIResponsesProviderOptions>()(openAi);
 
 
 // Initialize AI with tools and system prompts in constructor
 const ai = new AI({
   adapters: {
-    ollama: new OllamaAdapter({
-      apiKey: process.env.AI_KEY!,
-    }),
     openAi: new OpenAIAdapter({
       apiKey: process.env.AI_KEY!,
     }),
+    ollama: new OllamaAdapter({
+      apiKey: process.env.AI_KEY!,
+    }),
     // this works the same way as the adapters above because wrapper converted it to our convention
-    externalOpenAi: vercelOpenAiAdapter
+    externalOpenAi: vercelOpenAiAdapter,
   },
   fallbacks: [
     {
       adapter: "openAi",
-      model: "gpt-4",
+      model: "gpt-4o-mini",
     },
+    {
+      adapter: "ollama",
+      model: "gpt-oss:20b"
+    }
   ],
   tools,
   systemPrompts: [SYSTEM_PROMPT],
@@ -96,64 +106,11 @@ export const Route = createFileRoute("/demo/api/tanchat")({
     handlers: {
       POST: async ({ request }) => {
         const { messages } = await request.json();
-
-        // Example: Using OpenAI with provider-specific options
-        // System prompts are automatically prepended from constructor
         return ai.chat({
-          model: "gpt-4o",
-          adapter: "openAi",
-          fallbacks: [
-            // I can add the external adapter as a fallback here with typesafe model config thanks to our wrapper
-            {
-              adapter: "externalOpenAi",
-              // this should be typesafe
-              model: "chatgpt-4o-latest",
-              // this should be typesafe
-              providerOptions: {
-
-                "instructions": "You are a helpful assistant that provides concise answers."
-              }
-            },
-            {
-              adapter: "ollama",
-              model: "gpt-oss:20b",
-              providerOptions: {
-
-              }
-            },
-            {
-              adapter: "openAi",
-              model: "gpt-4",
-              providerOptions: {
-                "instructions": "You are a helpful assistant that provides concise answers."
-              }
-            }
-          ],
+          model: "gpt-5",
+          adapter: "externalOpenAi",
           as: "response",
           messages,
-          temperature: 0.7,
-          tools: ["getGuitars", "recommendGuitar"],
-          toolChoice: "auto",
-          maxIterations: 5,
-          // ✅ Provider-specific options typed based on the selected adapter
-          // Note: TypeScript provides autocomplete based on the adapter type
-          providerOptions: {
-            // Control response verbosity
-            textVerbosity: "high", // 'low' | 'medium' | 'high'
-
-            // Store generation for distillation
-            store: true,
-            metadata: {
-              session: "guitar-chat",
-              timestamp: new Date().toISOString(),
-            },
-
-            // User identifier for monitoring
-            user: "guitar-store-user",
-
-            // Parallel tool calling
-            parallelToolCalls: false, // Execute tools one at a time for this example
-          },
         });
       },
     },
