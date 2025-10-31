@@ -63,8 +63,7 @@ import { ai } from "@tanstack/ai";
 import { openai } from "@tanstack/ai-openai";
 
 // Create an AI instance with system prompts
-const aiInstance = ai({
-  adapter: openai(),
+const aiInstance = ai(openai(), {
   systemPrompts: ["You are a helpful assistant."]
 });
 
@@ -108,7 +107,9 @@ const result = await chat({
   adapter: openai(),
   model: "gpt-4o",
   messages: [{ role: "user", content: "Recommend a guitar" }],
-  output: guitarSchema, // Only available in promise mode
+  options: {
+    responseFormat: guitarSchema, // Only available in promise mode
+  },
 });
 
 // ✅ res.data is now fully typed!
@@ -119,6 +120,10 @@ if (result.data) {
 ```
 
 ## Installation
+
+> Note
+> - Structured outputs via `options.responseFormat` are only available in promise mode. When using `as: "stream"` or `as: "response"`, structured JSON is not parsed and you receive raw text/stream.
+> - On successful parsing, `result.data` is populated and typed; if parsing fails, `result.data` will be `undefined` and `result.content` will contain the raw model output.
 
 ```bash
 # Core library
@@ -149,11 +154,13 @@ const result = await chat({
   adapter: openai(),
   model: "gpt-4o",
   messages: [{ role: "user", content: "Hello!" }],
-  temperature: 0.7,
-  maxTokens: 1000,
+  options: {
+    temperature: 0.7,
+    maxTokens: 1000,
+  },
   providerOptions: { /* provider-specific options */ }
 });
-
+```
 // Streaming mode
 const stream = await chat({
   adapter: openai(),
@@ -276,8 +283,7 @@ const result = await video({
 import { ai } from "@tanstack/ai";
 import { openai } from "@tanstack/ai-openai";
 
-const aiInstance = ai({
-  adapter: openai(),
+const aiInstance = ai(openai(), {
   systemPrompts: ["You are a helpful assistant."],
 });
 ```
@@ -292,6 +298,14 @@ Same as standalone `chat()` function, but system prompts are automatically prepe
 await aiInstance.chat({
   model: "gpt-4o",
   messages: [{ role: "user", content: "Hello!" }],
+  // Tools are passed at root level
+  // tools: [myTool],
+  // Common options go under `options`
+  options: {
+    temperature: 0.7,
+  },
+  // Provider-specific options at root
+  // providerOptions: { ... }
   as: "promise", // or "stream" or "response"
 });
 ```
@@ -327,14 +341,17 @@ const result = await chat({
   adapter: openai(),
   model: "gpt-4o",
   messages: [{ role: "user", content: "Tell me about John Doe" }],
-  output: schema,
+  options: {
+    responseFormat: schema,
+  },
 });
 
-// result.data is typed based on the schema
+// result.data is typed based on the schema (promise mode only)
 if (result.data) {
   console.log(result.data.name); // string
   console.log(result.data.age); // number
 }
+// If parsing fails, `result.data` will be undefined and `result.content` will contain raw text.
 ```
 
 #### `tool(config)`
