@@ -133,15 +133,18 @@ class ChatEngine<
 
   private beforeChat(): void {
     this.streamStartTime = Date.now();
-    const { model, tools } = this.params;
+    const { model, tools, options, providerOptions } = this.params;
 
     aiEventClient.emit("chat:started", {
       requestId: this.requestId,
-      model: model as string,
+      model: model,
       messageCount: this.initialMessageCount,
       hasTools: !!tools && tools.length > 0,
       streaming: true,
       timestamp: Date.now(),
+      toolNames: tools?.map((t) => t.function.name),
+      options: options as Record<string, unknown> | undefined,
+      providerOptions: providerOptions as Record<string, unknown> | undefined,
     });
 
     aiEventClient.emit("stream:started", {
@@ -189,11 +192,11 @@ class ChatEngine<
 
   private async *streamModelResponse(): AsyncGenerator<StreamChunk> {
     const adapterOptions = this.params.options || {};
-    const providerOptions = this.params.providerOptions as any;
-    const tools = this.params.tools as Tool[] | undefined;
+    const providerOptions = this.params.providerOptions;
+    const tools = this.params.tools;
 
     for await (const chunk of this.adapter.chatStream({
-      model: this.params.model as string,
+      model: this.params.model,
       messages: this.messages,
       tools,
       options: adapterOptions,
@@ -294,6 +297,16 @@ class ChatEngine<
         usage: chunk.usage,
         timestamp: Date.now(),
       });
+
+      if (chunk.usage) {
+        aiEventClient.emit("usage:tokens", {
+          requestId: this.requestId,
+          messageId: this.currentMessageId || undefined,
+          model: this.params.model,
+          usage: chunk.usage,
+          timestamp: Date.now(),
+        });
+      }
       return;
     }
 
@@ -306,6 +319,16 @@ class ChatEngine<
       usage: chunk.usage,
       timestamp: Date.now(),
     });
+
+    if (chunk.usage) {
+      aiEventClient.emit("usage:tokens", {
+        requestId: this.requestId,
+        messageId: this.currentMessageId || undefined,
+        model: this.params.model,
+        usage: chunk.usage,
+        timestamp: Date.now(),
+      });
+    }
   }
 
   private handleErrorChunk(
@@ -649,7 +672,7 @@ class ChatEngine<
     return {
       type: "done",
       id: this.createId("pending"),
-      model: this.params.model as string,
+      model: this.params.model,
       timestamp: Date.now(),
       finishReason: "tool_calls",
     };
@@ -704,8 +727,7 @@ class ChatEngine<
  *   model: 'gpt-4o',
  *   messages: [{ role: 'user', content: 'Hello!' }],
  *   tools: [weatherTool], // Optional: auto-executed when called
- * });
- * ```
+ * }); 
  *
  * for await (const chunk of stream) {
  *   if (chunk.type === 'content') {
@@ -723,8 +745,8 @@ export async function* chat<
     any,
     any
   >
-    ? Models[number]
-    : string
+  ? Models[number]
+  : string
 >(
   options: Omit<
     ChatStreamOptionsUnion<TAdapter>,
@@ -739,10 +761,10 @@ export async function* chat<
       any,
       infer ModelProviderOptions
     >
-      ? TModel extends keyof ModelProviderOptions
-        ? ModelProviderOptions[TModel]
-        : never
-      : never;
+    ? TModel extends keyof ModelProviderOptions
+    ? ModelProviderOptions[TModel]
+    : never
+    : never;
   }
 ): AsyncIterable<StreamChunk> {
   const { adapter, ...chatOptions } = options;
